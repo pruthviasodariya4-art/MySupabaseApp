@@ -9,10 +9,10 @@ import {
   Platform,
   TouchableOpacity,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
 import { AppSVGs } from '../assets/svg';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface Message {
   id: string;
@@ -29,6 +29,39 @@ const ChatScreen = ({ route, navigation }: { route: any; navigation: any }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [message, setMessage] = useState('');
   const [roomId, setRoomId] = useState<string | null>(null);
+  const [subscription, setSubscription] = useState<any>(null);
+
+  // Set up real-time subscription
+  useEffect(() => {
+    if (!roomId) return;
+
+    // Subscribe to new messages for this room
+    const messageSubscription = supabase
+      .channel(`room:${roomId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `room_id=eq.${roomId}`,
+        },
+        payload => {
+          const newMessage = payload.new as Message;
+          setMessages(prev => [...prev, newMessage]);
+        },
+      )
+      .subscribe();
+
+    setSubscription(messageSubscription);
+
+    // Cleanup subscription on unmount
+    return () => {
+      if (subscription) {
+        supabase.removeChannel(subscription);
+      }
+    };
+  }, [roomId]);
 
   // Get or create chat room
   useEffect(() => {
@@ -98,21 +131,6 @@ const ChatScreen = ({ route, navigation }: { route: any; navigation: any }) => {
     getOrCreateChatRoom();
   }, [user?.id, otherUser.id]);
 
-  // const fetchMessages = async () => {
-  //   const { data: existingMessages, error: messagesError } = await supabase
-  //     .from('messages')
-  //     .select('*')
-  //     .eq('room_id', roomId)
-  //     .order('created_at', { ascending: true });
-  //   if (messagesError) {
-  //     console.error('Error fetching messages:', messagesError);
-  //     return;
-  //   }
-  //   if (existingMessages) {
-  //     setMessages(existingMessages);
-  //   }
-  // };
-
   const sendMessage = async () => {
     if (!message.trim() || !user?.id || !roomId) {
       console.log('Missing required fields:', {
@@ -138,21 +156,7 @@ const ChatScreen = ({ route, navigation }: { route: any; navigation: any }) => {
       return;
     }
 
-    const { data: existingMessages, error: messagesError } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('room_id', roomId)
-      .order('created_at', { ascending: true });
-
-    if (messagesError) {
-      console.error('Error fetching messages:', messagesError);
-      return;
-    }
-
-    if (existingMessages) {
-      setMessages(existingMessages);
-    }
-
+    // Clear the input field after sending
     setMessage('');
   };
 
