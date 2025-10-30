@@ -5,7 +5,7 @@ import React, {
   useState,
   useCallback,
 } from 'react';
-import { User, UserResponse } from '@supabase/supabase-js';
+import { User } from '@supabase/auth-js';
 import { supabase } from '../lib/supabase';
 
 type Profile = {
@@ -14,7 +14,7 @@ type Profile = {
   full_name?: string;
   avatar_url?: string;
   created_at: string;
-  updated_at: string;
+  // updated_at: string;
 };
 
 type AuthContextType = {
@@ -162,68 +162,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // const signUp = async (email: string, password: string, fullName?: string) => {
-  //   try {
-  //     // 1. Create the auth user
-  //     const { data, error } = await supabase.auth.signUp({
-  //       email,
-  //       password,
-  //     });
-  //     console.log('🚀 ~ signUp ~ ______________>:', data);
+  const signUp = async (email: string, password: string, fullName?: string) => {
+    try {
+      // 1. Create the auth user with metadata
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName || email.split('@')[0],
+          },
+        },
+      });
 
-  //     if (error) {
-  //       console.error('Auth signup error:', error);
-  //       return { data: null, error };
-  //     }
+      if (error) {
+        console.error('Auth signup error:', error);
+        return { data: null, error };
+      }
 
-  //     console.log('Auth signup successful:', data);
+      // 2. Create the user profile
+      if (data.user) {
+        const profileData = {
+          id: data.user.id,
+          email: email,
+          full_name: fullName || email.split('@')[0],
+          avatar_url: '',
+          created_at: new Date().toISOString(),
+        };
 
-  //     // 2. Create the user profile with timestamps
-  //     if (data.user) {
-  //       const now = new Date().toISOString();
+        const { data: profileDataResponse, error: profileError } =
+          await supabase.from('profiles').upsert(profileData).select().single();
 
-  //       const { data: profileData, error: profileError } = await supabase
-  //         .from('profiles')
-  //         .upsert({
-  //           id: data.user.id,
-  //           email: email,
-  //           full_name: fullName || email.split('@')[0],
-  //           avatar_url: '',
-  //           created_at: now,
-  //           // updated_at: now,
-  //         });
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          return { data: null, error: profileError };
+        }
 
-  //       if (error) {
-  //         console.error('Error saving profile:', error);
-  //       } else {
-  //         console.log('✅ Profile saved successfully');
-  //       }
-  //       console.log('🚀 ~ signUp ~ profileData:', profileData);
+        setProfile(profileDataResponse);
+        return {
+          data: {
+            user: data.user,
+            profile: profileDataResponse,
+          },
+          error: null,
+        };
+      }
 
-  //       if (profileError) {
-  //         console.error('Profile creation error:', profileError);
-  //         // Clean up auth user if profile creation fails
-  //         await supabase.auth.admin.deleteUser(data.user.id);
-  //         return { data: null, error: profileError };
-  //       }
-
-  //       console.log('Profile created/updated:', profileData);
-  //       setProfile(profileData);
-  //       return {
-  //         data: {
-  //           user: data.user,
-  //           profile: profileData,
-  //         },
-  //         error: null,
-  //       };
-  //     }
-
-  //     return { data, error: null };
-  //   } catch (error) {
-  //     console.error('Unexpected error during signup:', error);
-  //     return { data: null, error };
-  //   }
-  // };
+      return { data: null, error: new Error('User creation failed') };
+    } catch (error) {
+      console.error('Unexpected error during signup:', error);
+      return { data: null, error };
+    }
+  };
 
   const updateProfile = async (updates: Partial<Profile>) => {
     if (!user) return { data: null, error: new Error('No user logged in') };
@@ -258,7 +248,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     profile,
     loading,
     signIn,
-    // signUp,
+    signUp,
     signOut,
     updateProfile,
   };

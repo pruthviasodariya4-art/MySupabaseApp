@@ -8,15 +8,18 @@ import {
   TextInput,
   View,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
-import { useAuth } from '../contexts/AuthContext';
 import ChatLogo from '../assets/images/chat.png';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 
 const LoginScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
+  const navigation = useNavigation();
 
   const handleSignIn = async () => {
     if (!email || !password) {
@@ -66,6 +69,17 @@ const LoginScreen = () => {
         secureTextEntry
       />
 
+      <TouchableOpacity
+        style={styles.loginLink}
+        onPress={() => navigation.navigate('Signup')}
+      >
+        <Text style={styles.loginText}>
+          Don't have an account?
+          <Text style={styles.SignupText}> </Text>
+          <Text style={styles.SignupText}>Signup</Text>
+        </Text>
+      </TouchableOpacity>
+
       {loading ? (
         <ActivityIndicator size="large" color="#0000ff" />
       ) : (
@@ -103,6 +117,19 @@ const styles = StyleSheet.create({
     width: 400, // Adjust as needed
     height: 300, // Adjust as needed
     marginBottom: 20,
+  },
+  loginLink: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  loginText: {
+    color: '#000000',
+    fontSize: 16,
+  },
+  SignupText: {
+    color: '#007AFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 
