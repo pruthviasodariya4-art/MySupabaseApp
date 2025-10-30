@@ -1,5 +1,7 @@
+import { Provider } from 'react-redux';
 import { AuthProvider } from './src/contexts/AuthContext';
 import Route from './src/navigation/Route';
+import { store } from './src/app/store';
 
 // Initialize Google Sign-In
 // GoogleSignin.configure({
@@ -12,9 +14,11 @@ import Route from './src/navigation/Route';
 
 function App() {
   return (
-    <AuthProvider>
-      <Route />
-    </AuthProvider>
+    <Provider store={store}>
+      <AuthProvider>
+        <Route />
+      </AuthProvider>
+    </Provider>
   );
 }
 

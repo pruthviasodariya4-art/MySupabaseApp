@@ -9,10 +9,10 @@ import {
   Platform,
   TouchableOpacity,
 } from 'react-native';
-import { AppSVGs } from '../assets/svg';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
+import { AppSVGs } from '../assets/svg';
 
 interface Message {
   id: string;

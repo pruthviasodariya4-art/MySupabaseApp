@@ -44,17 +44,17 @@ const SignupScreen = () => {
     try {
       const { error } = await signUp(email, password, fullName);
 
-      if (error) {
-        console.log('🚀 ~ handleSignUp ~ error:', error);
-        Alert.alert('Error', error.message || 'Failed to create account');
-        return;
-      }
+      // if (error) {
+      //   Alert.alert('Error', error.message || 'Failed to create account');
+      //   return;
+      // }
 
       // The auth state change in AuthContext will handle the navigation
       Alert.alert(
         'Success',
         'Account created successfully! Please check your email to verify your account.',
       );
+      navigation.navigate('Login');
     } catch (error) {
       console.error('Unexpected error during sign up:', error);
       Alert.alert('Error', 'An unexpected error occurred');
