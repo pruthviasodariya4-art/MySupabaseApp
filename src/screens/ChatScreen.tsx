@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,10 +10,11 @@ import {
   TouchableOpacity,
   Image,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
 import { AppSVGs } from '../assets/svg';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { TypingIndicator } from '../components/TypingIndicator';
 
 interface Message {
   id: string;
@@ -30,39 +31,76 @@ const ChatScreen = ({ route, navigation }: { route: any; navigation: any }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [message, setMessage] = useState('');
   const [roomId, setRoomId] = useState<string | null>(null);
-  const [subscription, setSubscription] = useState<any>(null);
+  const [isOtherUserTyping, setIsOtherUserTyping] = useState(false);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const channelRef = useRef<any>(null);
 
-  // Set up real-time subscription
+  // Set up real-time subscription with presence for typing indicator
   useEffect(() => {
-    if (!roomId) return;
+    if (!roomId || !user?.id) return;
 
-    // Subscribe to new messages for this room
-    const messageSubscription = supabase
-      .channel(`room:${roomId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `room_id=eq.${roomId}`,
+    // Create a channel for this room
+    const channel = supabase.channel(`room:${roomId}`, {
+      config: {
+        presence: {
+          key: user.id,
         },
-        payload => {
-          const newMessage = payload.new as Message;
-          setMessages(prev => [...prev, newMessage]);
-        },
-      )
-      .subscribe();
+      },
+    });
 
-    setSubscription(messageSubscription);
+    // Subscribe to new messages
+    channel.on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+        filter: `room_id=eq.${roomId}`,
+      },
+      payload => {
+        const newMessage = payload.new as Message;
+        setMessages(prev => [...prev, newMessage]);
+      },
+    );
+
+    // Track presence changes for typing indicator
+    channel.on('presence', { event: 'sync' }, () => {
+      const presenceState = channel.presenceState();
+
+      // Check if other user is typing
+      const otherUserPresence = Object.values(presenceState).find(
+        (presence: any) => {
+          const presenceArray = presence as any[];
+          return presenceArray.some(
+            (p: any) => p.user_id === otherUser.id && p.typing === true,
+          );
+        },
+      );
+
+      setIsOtherUserTyping(!!otherUserPresence);
+    });
+
+    // Subscribe and track presence
+    channel.subscribe(async status => {
+      if (status === 'SUBSCRIBED') {
+        await channel.track({
+          user_id: user.id,
+          typing: false,
+          online_at: new Date().toISOString(),
+        });
+      }
+    });
+
+    channelRef.current = channel;
 
     // Cleanup subscription on unmount
     return () => {
-      if (subscription) {
-        supabase.removeChannel(subscription);
+      if (channelRef.current) {
+        channelRef.current.untrack();
+        supabase.removeChannel(channelRef.current);
       }
     };
-  }, [roomId]);
+  }, [roomId, user?.id, otherUser.id]);
 
   // Get or create chat room
   useEffect(() => {
@@ -72,19 +110,20 @@ const ChatScreen = ({ route, navigation }: { route: any; navigation: any }) => {
       try {
         // Create a unique room ID by combining both user IDs in a consistent order
         const userIds = [user.id, otherUser.id].sort();
-        const roomId = `${userIds[0]}_${userIds[1]}`;
+        const generatedRoomId = `${userIds[0]}_${userIds[1]}`;
 
         // First, try to get the existing room
         const { data: existingRoom, error: fetchError } = await supabase
           .from('chat_rooms')
           .select('*')
-          .eq('id', roomId)
+          .eq('id', generatedRoomId)
           .single();
 
         if (fetchError && fetchError.code !== 'PGRST116') {
           // PGRST116 is "not found" error
           console.error('Error fetching room:', fetchError);
           return;
+          y;
         }
 
         // If room doesn't exist, create it
@@ -92,7 +131,7 @@ const ChatScreen = ({ route, navigation }: { route: any; navigation: any }) => {
           const { data: newRoom, error: createError } = await supabase
             .from('chat_rooms')
             .insert({
-              id: roomId,
+              id: generatedRoomId,
               user1_id: userIds[0],
               user2_id: userIds[1],
               created_at: new Date().toISOString(),
@@ -107,13 +146,13 @@ const ChatScreen = ({ route, navigation }: { route: any; navigation: any }) => {
           console.log('Created new room:', newRoom);
         }
 
-        setRoomId(roomId);
+        setRoomId(generatedRoomId);
 
         // // Fetch existing messages
         const { data: existingMessages, error: messagesError } = await supabase
           .from('messages')
           .select('*')
-          .eq('room_id', roomId)
+          .eq('room_id', generatedRoomId)
           .order('created_at', { ascending: true });
 
         if (messagesError) {
@@ -131,6 +170,39 @@ const ChatScreen = ({ route, navigation }: { route: any; navigation: any }) => {
 
     getOrCreateChatRoom();
   }, [user?.id, otherUser.id]);
+
+  // Update typing status
+  const updateTypingStatus = async (isTyping: boolean) => {
+    if (channelRef.current && user?.id) {
+      await channelRef.current.track({
+        user_id: user.id,
+        typing: isTyping,
+        online_at: new Date().toISOString(),
+      });
+    }
+  };
+
+  // Handle text input change with typing indicator
+  const handleTextChange = (text: string) => {
+    setMessage(text);
+
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Set typing to true
+    if (text.length > 0) {
+      updateTypingStatus(true);
+
+      // Set timeout to stop typing indicator after 2 seconds of inactivity
+      typingTimeoutRef.current = setTimeout(() => {
+        updateTypingStatus(false);
+      }, 2000);
+    } else {
+      updateTypingStatus(false);
+    }
+  };
 
   const sendMessage = async () => {
     if (!message.trim() || !user?.id || !roomId) {
@@ -157,7 +229,11 @@ const ChatScreen = ({ route, navigation }: { route: any; navigation: any }) => {
       return;
     }
 
-    // Clear the input field after sending
+    // Stop typing indicator and clear the input field
+    updateTypingStatus(false);
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
     setMessage('');
   };
 
@@ -216,6 +292,9 @@ const ChatScreen = ({ route, navigation }: { route: any; navigation: any }) => {
         inverted={false}
       />
 
+      {/* Typing Indicator */}
+      {isOtherUserTyping && <TypingIndicator />}
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.inputContainer}
@@ -224,7 +303,7 @@ const ChatScreen = ({ route, navigation }: { route: any; navigation: any }) => {
         <TextInput
           style={styles.textInput}
           value={message}
-          onChangeText={setMessage}
+          onChangeText={handleTextChange}
           placeholder="Type a message..."
           placeholderTextColor="#999"
           multiline
