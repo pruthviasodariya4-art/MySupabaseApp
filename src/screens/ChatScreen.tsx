@@ -8,11 +8,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  Image,
 } from 'react-native';
-import { AppSVGs } from '../assets/svg';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
+import { AppSVGs } from '../assets/svg';
 
 interface Message {
   id: string;
@@ -192,7 +193,17 @@ const ChatScreen = ({ route, navigation }: { route: any; navigation: any }) => {
           <AppSVGs.Back width={24} height={24} />
         </TouchableOpacity>
         <View style={styles.avatarContainer}>
-          <AppSVGs.Person width={25} height={25} />
+          {otherUser.avatar_url ? (
+            <Image
+              source={{ uri: otherUser.avatar_url }}
+              style={styles.avatar}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.avtarBackground}>
+              <AppSVGs.Person width={30} height={30} />
+            </View>
+          )}
         </View>
         <Text style={styles.headerTitle}>{otherUser.full_name || 'Chat'}</Text>
       </View>
@@ -239,12 +250,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
   },
-  avatarContainer: {
-    // marginBottom: 10,
-    padding: 5,
-    backgroundColor: '#ddddddff',
-    borderRadius: 25,
-  },
+  avatarContainer: {},
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -307,6 +313,16 @@ const styles = StyleSheet.create({
   sendButtonText: {
     color: '#fff',
     fontWeight: '600',
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 25,
+  },
+  avtarBackground: {
+    backgroundColor: '#ddddddff',
+    borderRadius: 25,
+    padding: 5,
   },
 });
 

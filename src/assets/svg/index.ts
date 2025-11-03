@@ -5,6 +5,7 @@ import ProfileIcon from './profile.svg';
 import LogOff from './LogOff.svg';
 import Person from './person.svg';
 import Back from './back.svg';
+import Edit from './edit.svg';
 
 export const AppSVGs = {
   HomeIcon,
@@ -14,4 +15,5 @@ export const AppSVGs = {
   LogOff,
   Person,
   Back,
+  Edit,
 };

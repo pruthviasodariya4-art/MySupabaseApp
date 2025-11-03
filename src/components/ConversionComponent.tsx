@@ -6,6 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   FlatList,
+  Image,
 } from 'react-native';
 import { Profile } from '../types';
 import { AppSVGs } from '../assets/svg';
@@ -50,6 +51,7 @@ const ConversionComponent = () => {
         data={chatUsers}
         keyExtractor={item => item.id}
         renderItem={({ item }) => {
+          console.log('🚀 ~ ConversionComponent ~ item:', item);
           if (item?.id === user?.id) {
             return null;
           }
@@ -61,7 +63,18 @@ const ConversionComponent = () => {
               }}
             >
               <View style={styles.avatarContainer}>
-                <AppSVGs.Person width={30} height={30} />
+                {item.avatar_url ? (
+                  <Image
+                    source={{ uri: item.avatar_url }}
+                    style={styles.avatar}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.avtarBackground}>
+                    <AppSVGs.Person width={30} height={30} />
+                  </View>
+                )}
+                {/* <AppSVGs.Person width={30} height={30} /> */}
               </View>
               <Text>{item.full_name}</Text>
             </TouchableOpacity>
@@ -94,13 +107,19 @@ const styles = StyleSheet.create({
   },
   avatarContainer: {
     marginBottom: 10,
-    padding: 10,
-    backgroundColor: '#ddddddff',
+    // margin: 10,
+    padding: 5,
+    // backgroundColor: '#ddddddff',
     borderRadius: 25,
   },
   avatar: {
     width: 50,
     height: 50,
     borderRadius: 25,
+  },
+  avtarBackground: {
+    backgroundColor: '#ddddddff',
+    borderRadius: 25,
+    padding: 5,
   },
 });
