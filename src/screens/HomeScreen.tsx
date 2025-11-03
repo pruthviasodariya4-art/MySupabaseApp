@@ -1,30 +1,27 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ConversionComponent from '../components/ConversionComponent';
-import { AppSVGs } from '../assets/svg';
-import { Alert } from 'react-native';
-import { useAuth } from '../contexts/AuthContext';
 
 const HomeScreen = () => {
-  const { signOut } = useAuth();
+  // const { signOut } = useAuth();
 
-  const handleLogout = async () => {
-    const { error } = await signOut();
-    if (error) {
-      Alert.alert('Error', error.message);
-      return;
-    }
-    // Navigation is handled by the auth state change listener in Route.tsx
-  };
+  // // const handleLogout = async () => {
+  // //   const { error } = await signOut();
+  // //   if (error) {
+  // //     Alert.alert('Error', error.message);
+  // //     return;
+  // //   }
+  // //   // Navigation is handled by the auth state change listener in Route.tsx
+  // // };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Chats</Text>
-        <TouchableOpacity onPress={handleLogout}>
+        {/* <TouchableOpacity onPress={handleLogout}>
           <AppSVGs.LogOff />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
       <ConversionComponent />
     </SafeAreaView>

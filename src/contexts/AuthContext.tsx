@@ -138,14 +138,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [signOutMutation]);
 
+  // const updateProfile = useCallback(
+  //   async (updates: Partial<Profile>) => {
+  //     if (!user) return { data: null, error: new Error('No user logged in') };
+
+  //     try {
+  //       const { data, error } = await supabase
+  //         .from('profiles')
+  //         .update(updates)
+  //         .eq('id', user.id)
+  //         .select()
+  //         .single();
+  //       console.log('🚀 ~ AuthProvider ~ data:', data);
+
+  //       console.log('🚀 ~ AuthProvider ~ error:', error);
+  //       if (error) throw error;
+
+  //       setProfile(prev => (prev ? { ...prev, ...updates } : null));
+  //       return { data, error: null };
+  //     } catch (error) {
+  //       console.error('Update profile error:', error);
+  //       return { data: null, error };
+  //     }
+  //   },
+  //   [user],
+  // );
+
   const updateProfile = useCallback(
     async (updates: Partial<Profile>) => {
+      console.log('🚀 ~ AuthProvider ~ updates:', updates);
       if (!user) return { data: null, error: new Error('No user logged in') };
 
       try {
+        // Only include the fields you want to update
+        const { full_name, avatar_url, email /* other fields */ } = updates;
+        const updateData: Partial<Profile> = {};
+
+        if (full_name !== undefined) updateData.full_name = full_name;
+        if (avatar_url !== undefined) updateData.avatar_url = avatar_url;
+        if (email !== undefined) updateData.email = email;
+        // Add other fields as needed
+
+        // Update auth user metadata with full_name
+        if (full_name !== undefined) {
+          const { error: authError } = await supabase.auth.updateUser({
+            data: { full_name, avatar_url },
+          });
+
+          if (authError) {
+            console.error('Error updating auth user metadata:', authError);
+            throw authError;
+          }
+        }
+
+        // Update profiles table
         const { data, error } = await supabase
           .from('profiles')
-          .update(updates)
+          .update(updateData) // Only pass the fields we want to update
           .eq('id', user.id)
           .select()
           .single();
@@ -153,6 +202,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         if (error) throw error;
 
         setProfile(prev => (prev ? { ...prev, ...updates } : null));
+
+        // Update user state if email changed
+        if (email !== undefined) {
+          setUser(prev => (prev ? { ...prev, email } : null));
+        }
+
         return { data, error: null };
       } catch (error) {
         console.error('Update profile error:', error);
